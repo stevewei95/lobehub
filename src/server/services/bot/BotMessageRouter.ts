@@ -245,7 +245,11 @@ export class BotMessageRouter {
 
     const redisClient = getAgentRuntimeRedisClient();
     if (redisClient) {
-      config.state = createIoRedisState({ client: redisClient, logger: new ConsoleLogger() });
+      config.state = createIoRedisState({
+        client: redisClient,
+        keyPrefix: `chat-sdk:${label}`,
+        logger: new ConsoleLogger(),
+      });
     }
 
     return new Chat(config);
