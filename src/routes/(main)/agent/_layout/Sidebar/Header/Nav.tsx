@@ -25,7 +25,7 @@ const Nav = memo(() => {
   const agentId = params.aid;
   const pathname = usePathname();
   const isProfileActive = pathname.includes('/profile');
-  const isIntegrationActive = pathname.includes('/integration');
+  const isIntegrationActive = pathname.includes('/channel');
   const router = useQueryRoute();
   const { isAgentEditable } = useServerConfigStore(featureFlagsSelectors);
   const toggleCommandMenu = useGlobalStore((s) => s.toggleCommandMenu);
@@ -68,7 +68,7 @@ const Nav = memo(() => {
           title={t('tab.integration')}
           onClick={() => {
             switchTopic(null, { skipRefreshMessage: true });
-            router.push(urlJoin('/agent', agentId!, 'integration'));
+            router.push(urlJoin('/agent', agentId!, 'channel'));
           }}
         />
       )}
