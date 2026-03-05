@@ -8,6 +8,8 @@ import { scan } from 'react-scan';
 
 import { isChunkLoadError, notifyChunkError } from '@/utils/chunkError';
 
+import { isChunkLoadError, notifyChunkError } from '@/utils/chunkError';
+
 enableMapSet();
 
 // Dayjs plugins - extend once at app init to avoid duplicate extensions in components
