@@ -87,6 +87,8 @@ export interface LarkWebhookPayload {
   encrypt?: string;
   event?: LarkMessageEvent;
   header?: LarkEventHeader;
+  /** Verification token — present at top level in url_verification events */
+  token?: string;
   type?: string;
 }
 

@@ -105,15 +105,16 @@ export class LarkAdapter implements Adapter<LarkThreadId, LarkRawMessage> {
       }
     }
 
-    // URL verification challenge
-    if (body.type === 'url_verification') {
-      return Response.json({ challenge: body.challenge });
+    // Verify token if configured.
+    // Token location varies: v2 events use header.token, url_verification uses body.token.
+    const token = body.header?.token ?? body.token;
+    if (this.verificationToken && this.verificationToken !== token) {
+      return new Response('Invalid verification token', { status: 401 });
     }
 
-    // Verify token if configured
-    const token = body.header?.token;
-    if (this.verificationToken && token && this.verificationToken !== token) {
-      return new Response('Invalid verification token', { status: 401 });
+    // URL verification challenge (after token check)
+    if (body.type === 'url_verification') {
+      return Response.json({ challenge: body.challenge });
     }
 
     // Only handle message events
