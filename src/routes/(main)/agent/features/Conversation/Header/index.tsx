@@ -8,7 +8,6 @@ import { memo } from 'react';
 import NavHeader from '@/features/NavHeader';
 
 import HeaderActions from './HeaderActions';
-import NotebookButton from './NotebookButton';
 import ShareButton from './ShareButton';
 import Tags from './Tags';
 import WorkingDirectory from './WorkingDirectory';
@@ -22,9 +21,8 @@ const Header = memo(() => {
         </Flexbox>
       }
       right={
-        <Flexbox horizontal align={'center'} style={{ backgroundColor: cssVar.colorBgContainer }}>
+        <Flexbox horizontal align={'center'} gap={4} style={{ backgroundColor: cssVar.colorBgContainer }}>
           {isDesktop && <WorkingDirectory />}
-          <NotebookButton />
           <ShareButton />
           <HeaderActions />
         </Flexbox>
