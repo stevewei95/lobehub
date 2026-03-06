@@ -1,9 +1,7 @@
 import {
-  ActionIcon,
   DropdownMenuGroup,
   DropdownMenuGroupLabel,
   DropdownMenuItem,
-  DropdownMenuItemExtra,
   DropdownMenuItemIcon,
   DropdownMenuItemLabel,
   DropdownMenuPopup,
@@ -14,18 +12,15 @@ import {
   menuSharedStyles,
 } from '@lobehub/ui';
 import { cx } from 'antd-style';
-import { Check, LucideBolt } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
-import urlJoin from 'url-join';
 
 import { ModelItemRender, ProviderItemRender } from '@/components/ModelSelect';
 
 import { styles } from '../../styles';
 import { type ModelWithProviders } from '../../types';
 import { menuKey } from '../../utils';
-import ModelDetailPanel from '../ModelDetailPanel';
 
 interface MultipleProvidersModelItemProps {
   activeKey: string;
@@ -38,7 +33,6 @@ interface MultipleProvidersModelItemProps {
 export const MultipleProvidersModelItem = memo<MultipleProvidersModelItemProps>(
   ({ activeKey, data, newLabel, onModelChange, onClose }) => {
     const { t } = useTranslation('components');
-    const navigate = useNavigate();
     const [submenuOpen, setSubmenuOpen] = useState(false);
 
     const activeProvider = data.providers.find((p) => menuKey(p.id, data.model.id) === activeKey);
@@ -60,10 +54,6 @@ export const MultipleProvidersModelItem = memo<MultipleProvidersModelItemProps>(
         <DropdownMenuPortal>
           <DropdownMenuPositioner anchor={null} placement="right" sideOffset={12}>
             <DropdownMenuPopup className={cx(styles.detailPopup, styles.dropdownMenu)}>
-              <ModelDetailPanel
-                model={data.model.id}
-                provider={(activeProvider ?? data.providers[0]).id}
-              />
               <DropdownMenuGroup>
                 <DropdownMenuGroupLabel>
                   {t('ModelSwitchPanel.useModelFrom')}
@@ -93,24 +83,6 @@ export const MultipleProvidersModelItem = memo<MultipleProvidersModelItemProps>(
                           type={'avatar'}
                         />
                       </DropdownMenuItemLabel>
-                      <DropdownMenuItemExtra>
-                        <ActionIcon
-                          className={'settings-icon'}
-                          icon={LucideBolt}
-                          size={'small'}
-                          title={t('ModelSwitchPanel.goToSettings')}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const url = urlJoin('/settings/provider', p.id || 'all');
-                            if (e.ctrlKey || e.metaKey) {
-                              window.open(url, '_blank');
-                            } else {
-                              navigate(url);
-                            }
-                          }}
-                        />
-                      </DropdownMenuItemExtra>
                     </DropdownMenuItem>
                   );
                 })}

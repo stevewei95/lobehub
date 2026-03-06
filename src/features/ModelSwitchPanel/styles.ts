@@ -8,7 +8,7 @@ export const styles = createStaticStyles(({ css, cssVar }) => ({
     padding: 0 !important;
   `,
   detailPopup: css`
-    width: 400px;
+    width: 220px;
   `,
   dropdownMenu: css`
     [role='menuitem'] {
@@ -18,32 +18,10 @@ export const styles = createStaticStyles(({ css, cssVar }) => ({
       padding-inline: 8px;
       border-radius: ${cssVar.borderRadiusSM};
     }
-
-    [role='menuitem'] .settings-icon {
-      opacity: 0;
-    }
-
-    [role='menuitem']:hover .settings-icon {
-      opacity: 1;
-    }
-  `,
-
-  footer: css`
-    border-block-start: 1px solid ${cssVar.colorBorderSecondary};
   `,
   groupHeader: css`
     width: 100%;
     color: ${cssVar.colorTextSecondary};
-
-    .settings-icon {
-      opacity: 0;
-    }
-
-    &:hover {
-      .settings-icon {
-        opacity: 1;
-      }
-    }
   `,
   list: css`
     position: relative;
@@ -63,16 +41,6 @@ export const styles = createStaticStyles(({ css, cssVar }) => ({
     padding-block: 8px;
     padding-inline: 8px;
     border-radius: ${cssVar.borderRadiusSM};
-
-    .settings-icon {
-      opacity: 0;
-    }
-
-    &:hover {
-      .settings-icon {
-        opacity: 1;
-      }
-    }
   `,
   menuItemActive: css`
     background: ${cssVar.colorFillTertiary};
