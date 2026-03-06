@@ -54,7 +54,7 @@ export const MultipleProvidersModelItem = memo<MultipleProvidersModelItemProps>(
             {...data.model}
             {...data.model.abilities}
             newBadgeLabel={newLabel}
-            showInfoTag={true}
+            showInfoTag={false}
           />
         </DropdownMenuSubmenuTrigger>
         <DropdownMenuPortal>
