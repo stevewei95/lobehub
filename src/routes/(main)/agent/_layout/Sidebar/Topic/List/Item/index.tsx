@@ -12,9 +12,8 @@ import { INTEGRATION_PROVIDERS } from '@/routes/(main)/agent/channel/const';
 import { useAgentStore } from '@/store/agent';
 import { useChatStore } from '@/store/chat';
 import { operationSelectors } from '@/store/chat/selectors';
-import { useGlobalStore } from '@/store/global';
-import type { ChatTopicMetadata } from '@/types/topic';
 import { useElectronStore } from '@/store/electron';
+import type { ChatTopicMetadata } from '@/types/topic';
 
 import { useTopicNavigation } from '../../hooks/useTopicNavigation';
 import ThreadList from '../../TopicListContent/ThreadList';
