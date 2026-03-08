@@ -26,6 +26,8 @@ export interface GatewayListenerOptions {
 }
 
 export class Discord implements PlatformBot {
+  static readonly persistent = true;
+
   readonly platform = 'discord';
   readonly applicationId: string;
 
