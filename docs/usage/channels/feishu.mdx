@@ -89,24 +89,20 @@ By connecting a Feishu (or Lark) channel to your LobeHub agent, team members can
         "scopes": {
           "tenant": [
             "contact:user.employee_id:readonly",
-            "im:chat.access_event.bot_p2p_chat:read",
-            "im:chat.members:bot_access",
+            "im:chat.members:read",
             "im:message",
             "im:message.group_at_msg:readonly",
             "im:message.p2p_msg:readonly",
             "im:message:readonly",
             "im:message:send_as_bot",
             "im:resource"
-          ],
-          "user": [
-            "im:chat.access_event.bot_p2p_chat:read"
           ]
         }
       }
       ```
 
       <Callout type={'warning'}>
-        Lark (international) does not support some Feishu-specific scopes (e.g. `aily:*`, `corehr:*`, `cardkit:*`). Using the Feishu JSON on Lark may cause the batch import to fail.
+        Lark (international) does not support some Feishu-specific scopes such as `im:chat.access_event.bot_p2p_chat:read` and `im:chat.members:bot_access`. The JSON above uses Lark-compatible equivalents.
       </Callout>
     </Tab>
   </Tabs>

@@ -86,24 +86,20 @@ tags:
         "scopes": {
           "tenant": [
             "contact:user.employee_id:readonly",
-            "im:chat.access_event.bot_p2p_chat:read",
-            "im:chat.members:bot_access",
+            "im:chat.members:read",
             "im:message",
             "im:message.group_at_msg:readonly",
             "im:message.p2p_msg:readonly",
             "im:message:readonly",
             "im:message:send_as_bot",
             "im:resource"
-          ],
-          "user": [
-            "im:chat.access_event.bot_p2p_chat:read"
           ]
         }
       }
       ```
 
       <Callout type={'warning'}>
-        Lark（国际版）不支持部分飞书特有的权限码（如 `aily:*`、`corehr:*`、`cardkit:*`）。使用飞书的 JSON 在 Lark 上批量导入可能会失败。
+        Lark（国际版）不支持部分飞书特有的权限码，如 `im:chat.access_event.bot_p2p_chat:read` 和 `im:chat.members:bot_access`。以上 JSON 已替换为 Lark 兼容的权限码。
       </Callout>
     </Tab>
   </Tabs>
