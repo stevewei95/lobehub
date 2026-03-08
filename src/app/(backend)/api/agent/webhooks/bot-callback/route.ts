@@ -6,124 +6,23 @@ import { AgentBotProviderModel } from '@/database/models/agentBotProvider';
 import { TopicModel } from '@/database/models/topic';
 import { verifyQStashSignature } from '@/libs/qstash';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
-import { DiscordRestApi } from '@/server/services/bot/discordRestApi';
-import { LarkRestApi } from '@/server/services/bot/larkRestApi';
+import type { PlatformMessenger } from '@/server/services/bot/platformModule';
+import { getPlatformModule } from '@/server/services/bot/platforms';
 import {
   renderError,
   renderFinalReply,
   renderStepProgress,
   splitMessage,
 } from '@/server/services/bot/replyTemplate';
-import { TelegramRestApi } from '@/server/services/bot/telegramRestApi';
 import { SystemAgentService } from '@/server/services/systemAgent';
 
 const log = debug('api-route:agent:bot-callback');
-
-// --------------- Platform-specific helpers ---------------
-
-/**
- * Parse a Chat SDK platformThreadId (e.g. "discord:guildId:channelId[:threadId]")
- * and return the actual Discord channel ID to send messages to.
- */
-function extractDiscordChannelId(platformThreadId: string): string {
-  const parts = platformThreadId.split(':');
-  // parts[0]='discord', parts[1]=guildId, parts[2]=channelId, parts[3]=threadId (optional)
-  // When there's a Discord thread, use threadId; otherwise use channelId
-  return parts[3] || parts[2];
-}
-
-/**
- * Parse a Chat SDK platformThreadId (e.g. "telegram:chatId[:messageThreadId]")
- * and return the Telegram chat ID.
- */
-function extractTelegramChatId(platformThreadId: string): string {
-  const parts = platformThreadId.split(':');
-  // parts[0]='telegram', parts[1]=chatId
-  return parts[1];
-}
 
 /**
  * Detect platform from platformThreadId prefix.
  */
 function detectPlatform(platformThreadId: string): string {
   return platformThreadId.split(':')[0];
-}
-
-/**
- * Extract chat ID from Lark platformThreadId (e.g. "lark:oc_xxx" or "feishu:oc_xxx").
- */
-function extractLarkChatId(platformThreadId: string): string {
-  const parts = platformThreadId.split(':');
-  return parts[1];
-}
-
-/** Telegram has a 4096 char limit vs Discord's 2000 */
-const TELEGRAM_CHAR_LIMIT = 4000;
-const LARK_CHAR_LIMIT = 4000;
-
-// --------------- Platform-agnostic message interface ---------------
-
-interface PlatformMessenger {
-  createMessage: (content: string) => Promise<void>;
-  editMessage: (messageId: string, content: string) => Promise<void>;
-  removeReaction: (messageId: string, emoji: string) => Promise<void>;
-  triggerTyping: () => Promise<void>;
-  updateThreadName?: (name: string) => Promise<void>;
-}
-
-function createDiscordMessenger(
-  discord: DiscordRestApi,
-  channelId: string,
-  platformThreadId: string,
-): PlatformMessenger {
-  return {
-    createMessage: (content) => discord.createMessage(channelId, content).then(() => {}),
-    editMessage: (messageId, content) => discord.editMessage(channelId, messageId, content),
-    removeReaction: (messageId, emoji) => discord.removeOwnReaction(channelId, messageId, emoji),
-    triggerTyping: () => discord.triggerTyping(channelId),
-    updateThreadName: (name) => {
-      const parts = platformThreadId.split(':');
-      const threadId = parts[3];
-      if (threadId) {
-        return discord.updateChannelName(threadId, name);
-      }
-      return Promise.resolve();
-    },
-  };
-}
-
-/**
- * Parse a Chat SDK composite Telegram message ID ("chatId:messageId") into
- * the raw numeric message ID that the Telegram Bot API expects.
- */
-function parseTelegramMessageId(compositeId: string): number {
-  // Format: "chatId:messageId" e.g. "-100123456:42"
-  const colonIdx = compositeId.lastIndexOf(':');
-  if (colonIdx !== -1) {
-    return Number(compositeId.slice(colonIdx + 1));
-  }
-  return Number(compositeId);
-}
-
-function createTelegramMessenger(telegram: TelegramRestApi, chatId: string): PlatformMessenger {
-  return {
-    createMessage: (content) => telegram.sendMessage(chatId, content).then(() => {}),
-    editMessage: (messageId, content) =>
-      telegram.editMessageText(chatId, parseTelegramMessageId(messageId), content),
-    removeReaction: (messageId) =>
-      telegram.removeMessageReaction(chatId, parseTelegramMessageId(messageId)),
-    triggerTyping: () => telegram.sendChatAction(chatId, 'typing'),
-  };
-}
-
-function createLarkMessenger(lark: LarkRestApi, chatId: string): PlatformMessenger {
-  return {
-    createMessage: (content) => lark.sendMessage(chatId, content).then(() => {}),
-    editMessage: (messageId, content) => lark.editMessage(messageId, content),
-    // Lark has no reaction/typing API for bots
-    removeReaction: () => Promise.resolve(),
-    triggerTyping: () => Promise.resolve(),
-  };
 }
 
 /**
@@ -198,41 +97,22 @@ export async function POST(request: Request): Promise<Response> {
       credentials = JSON.parse(row.credentials);
     }
 
-    // Validate required credentials exist for the platform
-    const isLark = platform === 'lark' || platform === 'feishu';
-    if (isLark ? !credentials.appId || !credentials.appSecret : !credentials.botToken) {
-      log('bot-callback: missing credentials for %s appId=%s', platform, applicationId);
+    // Use PlatformModule to validate credentials and create messenger
+    const platformModule = getPlatformModule(platform);
+    if (!platformModule) {
+      log('bot-callback: unsupported platform %s', platform);
+      return NextResponse.json({ error: `Unsupported platform: ${platform}` }, { status: 400 });
+    }
+
+    // Validate required credentials
+    const missingKeys = platformModule.requiredCredentials.filter((key) => !credentials[key]);
+    if (missingKeys.length > 0) {
+      log('bot-callback: missing credentials for %s appId=%s: %s', platform, applicationId, missingKeys.join(', '));
       return NextResponse.json({ error: 'Bot credentials incomplete' }, { status: 500 });
     }
 
-    // Create platform-specific messenger
-    let messenger: PlatformMessenger;
-    let charLimit: number | undefined;
-
-    switch (platform) {
-      case 'telegram': {
-        const telegram = new TelegramRestApi(credentials.botToken);
-        const chatId = extractTelegramChatId(platformThreadId);
-        messenger = createTelegramMessenger(telegram, chatId);
-        charLimit = TELEGRAM_CHAR_LIMIT;
-        break;
-      }
-      case 'lark':
-      case 'feishu': {
-        const lark = new LarkRestApi(credentials.appId, credentials.appSecret, platform);
-        const chatId = extractLarkChatId(platformThreadId);
-        messenger = createLarkMessenger(lark, chatId);
-        charLimit = LARK_CHAR_LIMIT;
-        break;
-      }
-      case 'discord':
-      default: {
-        const discord = new DiscordRestApi(credentials.botToken);
-        const channelId = extractDiscordChannelId(platformThreadId);
-        messenger = createDiscordMessenger(discord, channelId, platformThreadId);
-        break;
-      }
-    }
+    const messenger: PlatformMessenger = platformModule.createMessenger(credentials, platformThreadId);
+    const charLimit = platformModule.charLimit;
 
     if (type === 'step') {
       await handleStepCallback(body, messenger, progressMessageId, platform);

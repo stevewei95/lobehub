@@ -1,7 +1,4 @@
-import { createDiscordAdapter } from '@chat-adapter/discord';
 import { createIoRedisState } from '@chat-adapter/state-ioredis';
-import { createTelegramAdapter } from '@chat-adapter/telegram';
-import { createLarkAdapter } from '@lobechat/adapter-lark';
 import { Chat, ConsoleLogger } from 'chat';
 import debug from 'debug';
 
@@ -9,12 +6,12 @@ import { getServerDB } from '@/database/core/db-adaptor';
 import type { DecryptedBotProvider } from '@/database/models/agentBotProvider';
 import { AgentBotProviderModel } from '@/database/models/agentBotProvider';
 import type { LobeChatDatabase } from '@/database/type';
-import { appEnv } from '@/envs/app';
 import { getAgentRuntimeRedisClient } from '@/server/modules/AgentRuntime/redis';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 
 import { AgentBridgeService } from './AgentBridgeService';
-import { setTelegramWebhook } from './platforms/telegram';
+import type { PlatformModule } from './platformModule';
+import { getPlatformModule } from './platforms';
 
 const log = debug('lobe-server:bot:message-router');
 
@@ -25,50 +22,6 @@ interface ResolvedAgentInfo {
 
 interface StoredCredentials {
   [key: string]: string;
-}
-
-/**
- * Adapter factory: creates the correct Chat SDK adapter from platform + credentials.
- */
-function createAdapterForPlatform(
-  platform: string,
-  credentials: StoredCredentials,
-  applicationId: string,
-): Record<string, any> | null {
-  switch (platform) {
-    case 'discord': {
-      return {
-        discord: createDiscordAdapter({
-          applicationId,
-          botToken: credentials.botToken,
-          publicKey: credentials.publicKey,
-        }),
-      };
-    }
-    case 'telegram': {
-      return {
-        telegram: createTelegramAdapter({
-          botToken: credentials.botToken,
-          secretToken: credentials.secretToken,
-        }),
-      };
-    }
-    case 'lark':
-    case 'feishu': {
-      return {
-        [platform]: createLarkAdapter({
-          appId: credentials.appId,
-          appSecret: credentials.appSecret,
-          encryptKey: credentials.encryptKey,
-          platform: platform as 'lark' | 'feishu',
-          verificationToken: credentials.verificationToken,
-        }),
-      };
-    }
-    default: {
-      return null;
-    }
-  }
 }
 
 /**
@@ -116,21 +69,13 @@ export class BotMessageRouter {
     return async (req: Request) => {
       await this.ensureInfra();
 
-      switch (platform) {
-        case 'discord': {
-          return this.handleDiscordWebhook(req);
-        }
-        case 'telegram': {
-          return this.handleTelegramWebhook(req, appId);
-        }
-        case 'lark':
-        case 'feishu': {
-          return this.handleChatSdkWebhook(req, platform, appId);
-        }
-        default: {
-          return new Response('No bot configured for this platform', { status: 404 });
-        }
+      // Discord has special routing (gateway token + payload parsing)
+      if (platform === 'discord') {
+        return this.handleDiscordWebhook(req);
       }
+
+      // Generic Chat SDK webhook routing — works for all appId-based platforms
+      return this.handleGenericWebhook(req, platform, appId);
     };
   }
 
@@ -203,77 +148,28 @@ export class BotMessageRouter {
   }
 
   // ------------------------------------------------------------------
-  // Telegram webhook routing
+  // Generic webhook routing (Telegram, Lark, Feishu, and future platforms)
   // ------------------------------------------------------------------
 
-  private async handleTelegramWebhook(req: Request, appId?: string): Promise<Response> {
-    const bodyBuffer = await req.arrayBuffer();
-
-    log(
-      'handleTelegramWebhook: method=%s, appId=%s, content-length=%d',
-      req.method,
-      appId ?? '(none)',
-      bodyBuffer.byteLength,
-    );
-
-    // Log raw update for debugging
-    try {
-      const bodyText = new TextDecoder().decode(bodyBuffer);
-      const update = JSON.parse(bodyText);
-      const msg = update.message;
-      if (msg) {
-        log(
-          'Telegram update: chat_type=%s, from=%s (id=%s), text=%s',
-          msg.chat?.type,
-          msg.from?.username || msg.from?.first_name,
-          msg.from?.id,
-          msg.text?.slice(0, 100),
-        );
-      } else {
-        log('Telegram update (non-message): keys=%s', Object.keys(update).join(','));
-      }
-    } catch {
-      // ignore parse errors
-    }
-
-    // Direct lookup by applicationId (bot-specific endpoint: /webhooks/telegram/{appId})
-    if (appId) {
-      const bot = await this.ensureBotLoaded('telegram', appId);
-      if (bot?.webhooks && 'telegram' in bot.webhooks) {
-        log('handleTelegramWebhook: direct lookup hit for telegram:%s', appId);
-        return bot.webhooks.telegram(this.cloneRequest(req, bodyBuffer));
-      }
-      log('handleTelegramWebhook: no bot registered for telegram:%s', appId);
-      return new Response('No bot configured for Telegram', { status: 404 });
-    }
-
-    log('handleTelegramWebhook: no appId provided, cannot route');
-    return new Response('No bot configured for Telegram', { status: 404 });
-  }
-
-  // ------------------------------------------------------------------
-  // Generic Chat SDK webhook routing (Lark/Feishu)
-  // ------------------------------------------------------------------
-
-  private async handleChatSdkWebhook(
+  private async handleGenericWebhook(
     req: Request,
     platform: string,
     appId?: string,
   ): Promise<Response> {
-    log('handleChatSdkWebhook: platform=%s, appId=%s', platform, appId);
+    log('handleGenericWebhook: platform=%s, appId=%s', platform, appId);
 
-    const bodyBuffer = await req.arrayBuffer();
-
-    // Direct lookup by applicationId
-    if (appId) {
-      const bot = await this.ensureBotLoaded(platform, appId);
-      if (bot?.webhooks && platform in bot.webhooks) {
-        return (bot.webhooks as any)[platform](this.cloneRequest(req, bodyBuffer));
-      }
-      log('handleChatSdkWebhook: no bot registered for %s:%s', platform, appId);
+    if (!appId) {
       return new Response(`No bot configured for ${platform}`, { status: 404 });
     }
 
+    const bodyBuffer = await req.arrayBuffer();
+
+    const bot = await this.ensureBotLoaded(platform, appId);
+    if (bot?.webhooks && platform in bot.webhooks) {
+      return (bot.webhooks as any)[platform](this.cloneRequest(req, bodyBuffer));
+    }
+
+    log('handleGenericWebhook: no bot registered for %s:%s', platform, appId);
     return new Response(`No bot configured for ${platform}`, { status: 404 });
   }
 
@@ -421,7 +317,7 @@ export class BotMessageRouter {
 
   /**
    * Shared bot initialization: create adapter, Chat instance, register handlers,
-   * populate caches, set webhooks.
+   * populate caches, call platform-specific onBotInitialized hook.
    */
   private async initializeBot(
     platform: string,
@@ -434,14 +330,21 @@ export class BotMessageRouter {
     const existing = this.botInstances.get(key);
     if (existing) return existing;
 
-    const adapters = createAdapterForPlatform(platform, credentials, applicationId);
-    if (!adapters) {
+    // Use PlatformModule to create adapter (eliminates platform switch)
+    const platformModule = getPlatformModule(platform);
+    if (!platformModule) {
       log('initializeBot: unsupported platform %s', platform);
       return null;
     }
 
+    const adapters = platformModule.createChatAdapter(credentials, applicationId);
+    if (!adapters) {
+      log('initializeBot: adapter creation failed for %s', platform);
+      return null;
+    }
+
     const bot = this.createBot(adapters, `agent-${agentId}`);
-    this.registerHandlers(bot, this.serverDB!, {
+    this.registerHandlers(bot, this.serverDB!, platformModule, {
       agentId,
       applicationId,
       platform,
@@ -458,14 +361,9 @@ export class BotMessageRouter {
       this.botInstancesByToken.set(credentials.botToken, bot);
     }
 
-    // Telegram: call setWebhook to ensure Telegram-side secret_token
-    // stays in sync with the adapter config (idempotent, safe on every init)
-    if (platform === 'telegram' && credentials.botToken) {
-      const baseUrl = (credentials.webhookProxyUrl || appEnv.APP_URL || '').replace(/\/$/, '');
-      const webhookUrl = `${baseUrl}/api/agent/webhooks/telegram/${applicationId}`;
-      setTelegramWebhook(credentials.botToken, webhookUrl, credentials.secretToken).catch((err) => {
-        log('Failed to set Telegram webhook for appId=%s: %O', applicationId, err);
-      });
+    // Platform-specific post-init hook (e.g., Telegram setWebhook)
+    if (platformModule.onBotInitialized) {
+      await platformModule.onBotInitialized(credentials, applicationId);
     }
 
     if (!this.lastLoadedAt) this.lastLoadedAt = Date.now();
@@ -500,6 +398,7 @@ export class BotMessageRouter {
   private registerHandlers(
     bot: Chat<any>,
     serverDB: LobeChatDatabase,
+    platformModule: PlatformModule,
     info: ResolvedAgentInfo & { applicationId: string; platform: string },
   ): void {
     const { agentId, applicationId, platform, userId } = info;
@@ -536,11 +435,10 @@ export class BotMessageRouter {
       });
     });
 
-    // Telegram/Lark: handle messages in unsubscribed threads that aren't @mentions.
-    // This covers direct messages where users message the bot without an explicit @mention.
-    // Discord relies solely on onNewMention/onSubscribedMessage — registering a
-    // catch-all there would cause unsolicited replies in active channels.
-    if (platform === 'telegram' || platform === 'lark' || platform === 'feishu') {
+    // Register catch-all handler only for platforms that support it
+    // (e.g. Telegram, Lark, Feishu — for handling DMs without @mention).
+    // Platforms like Discord should NOT enable this to avoid unsolicited replies.
+    if (platformModule.supportsCatchAllMessages) {
       bot.onNewMessage(/./, async (thread, message) => {
         if (message.author.isBot === true) return;
 
