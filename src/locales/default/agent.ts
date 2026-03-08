@@ -12,7 +12,7 @@ export default {
   'channel.connectionConfig': 'Connection Configuration',
   'channel.copied': 'Copied to clipboard',
   'channel.copy': 'Copy',
-  'channel.deleteConfirm': 'Are you sure you want to remove this integration?',
+  'channel.deleteConfirm': 'Are you sure you want to remove this channel?',
   'channel.devWebhookProxyUrl': 'HTTPS Tunnel URL',
   'channel.devWebhookProxyUrlHint':
     'Optional. HTTPS tunnel URL for forwarding webhook requests to local dev server.',
