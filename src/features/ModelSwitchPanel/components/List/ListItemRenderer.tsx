@@ -11,6 +11,8 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import { ModelItemRender, ProviderItemRender } from '@/components/ModelSelect';
+import { useUserStore } from '@/store/user';
+import { userGeneralSettingsSelectors } from '@/store/user/selectors';
 
 import { styles } from '../../styles';
 import { type ListItem } from '../../types';
@@ -30,6 +32,7 @@ export const ListItemRenderer = memo<ListItemRendererProps>(
   ({ activeKey, item, newLabel, onModelChange, onClose }) => {
     const { t } = useTranslation('components');
     const navigate = useNavigate();
+    const isDevMode = useUserStore((s) => userGeneralSettingsSelectors.config(s).isDevMode);
 
     switch (item.type) {
       case 'no-provider': {
@@ -105,7 +108,7 @@ export const ListItemRenderer = memo<ListItemRendererProps>(
                 {...item.model}
                 {...item.model.abilities}
                 newBadgeLabel={newLabel}
-                showInfoTag={false}
+                showInfoTag={isDevMode}
               />
             </Block>
           </Flexbox>
@@ -129,7 +132,7 @@ export const ListItemRenderer = memo<ListItemRendererProps>(
                 onClose();
               }}
             >
-              <SingleProviderModelItem data={item.data} newLabel={newLabel} />
+              <SingleProviderModelItem data={item.data} newLabel={newLabel} showInfoTag={isDevMode} />
             </Block>
           </Flexbox>
         );
@@ -144,6 +147,7 @@ export const ListItemRenderer = memo<ListItemRendererProps>(
               newLabel={newLabel}
               onClose={onClose}
               onModelChange={onModelChange}
+              showInfoTag={isDevMode}
             />
           </Flexbox>
         );

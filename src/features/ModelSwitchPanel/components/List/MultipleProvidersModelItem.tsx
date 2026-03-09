@@ -21,6 +21,7 @@ import { ModelItemRender, ProviderItemRender } from '@/components/ModelSelect';
 import { styles } from '../../styles';
 import { type ModelWithProviders } from '../../types';
 import { menuKey } from '../../utils';
+import ModelDetailPanel from '../ModelDetailPanel';
 
 interface MultipleProvidersModelItemProps {
   activeKey: string;
@@ -28,10 +29,11 @@ interface MultipleProvidersModelItemProps {
   newLabel: string;
   onClose: () => void;
   onModelChange: (modelId: string, providerId: string) => Promise<void>;
+  showInfoTag?: boolean;
 }
 
 export const MultipleProvidersModelItem = memo<MultipleProvidersModelItemProps>(
-  ({ activeKey, data, newLabel, onModelChange, onClose }) => {
+  ({ activeKey, data, newLabel, onModelChange, onClose, showInfoTag }) => {
     const { t } = useTranslation('components');
     const [submenuOpen, setSubmenuOpen] = useState(false);
 
@@ -48,12 +50,18 @@ export const MultipleProvidersModelItem = memo<MultipleProvidersModelItemProps>(
             {...data.model}
             {...data.model.abilities}
             newBadgeLabel={newLabel}
-            showInfoTag={false}
+            showInfoTag={showInfoTag}
           />
         </DropdownMenuSubmenuTrigger>
         <DropdownMenuPortal>
           <DropdownMenuPositioner anchor={null} placement="right" sideOffset={12}>
             <DropdownMenuPopup className={cx(styles.detailPopup, styles.dropdownMenu)}>
+              {showInfoTag && (
+                <ModelDetailPanel
+                  model={data.model.id}
+                  provider={(activeProvider ?? data.providers[0]).id}
+                />
+              )}
               <DropdownMenuGroup>
                 <DropdownMenuGroupLabel>
                   {t('ModelSwitchPanel.useModelFrom')}

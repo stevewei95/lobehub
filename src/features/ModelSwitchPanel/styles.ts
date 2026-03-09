@@ -8,7 +8,7 @@ export const styles = createStaticStyles(({ css, cssVar }) => ({
     padding: 0 !important;
   `,
   detailPopup: css`
-    width: 220px;
+    width: 280px;
   `,
   dropdownMenu: css`
     [role='menuitem'] {
