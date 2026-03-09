@@ -12,7 +12,13 @@ export interface ToolStatus {
 /**
  * Tool categories
  */
-export type ToolCategory = 'content-search' | 'custom' | 'file-search' | 'system';
+export type ToolCategory =
+  | 'content-search'
+  | 'ast-search'
+  | 'file-search'
+  | 'browser-automation'
+  | 'system'
+  | 'custom';
 
 /**
  * Tool info for display
