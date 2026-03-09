@@ -5,6 +5,7 @@ import Referral from '@/business/client/BusinessSettingPages/Referral';
 import { SettingsTabs } from '@/store/global/initialState';
 
 import About from '../about';
+import Advanced from '../advanced';
 import Appearance from '../appearance';
 import APIKey from '../apikey';
 import Beta from '../beta';
@@ -21,6 +22,7 @@ import Storage from '../storage';
 import SystemTools from '../system-tools';
 
 export const componentMap = {
+  [SettingsTabs.Advanced]: Advanced,
   [SettingsTabs.Beta]: Beta,
   [SettingsTabs.Appearance]: Appearance,
   [SettingsTabs.Provider]: Provider,
