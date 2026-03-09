@@ -338,15 +338,24 @@ export default class LocalFileCtr extends ControllerModule {
 
       // Sort entries based on sortBy and sortOrder
       results.sort((a, b) => {
-        const comparison =
-          sortBy === 'name'
-            ? (a.name || '').localeCompare(b.name || '')
-            : sortBy === 'createdTime'
-              ? a.createdTime.getTime() - b.createdTime.getTime()
-              : sortBy === 'size'
-                ? a.size - b.size
-                : a.modifiedTime.getTime() - b.modifiedTime.getTime();
-
+        let comparison: number;
+        switch (sortBy) {
+          case 'name': {
+            comparison = (a.name || '').localeCompare(b.name || '');
+            break;
+          }
+          case 'createdTime': {
+            comparison = a.createdTime.getTime() - b.createdTime.getTime();
+            break;
+          }
+          case 'size': {
+            comparison = a.size - b.size;
+            break;
+          }
+          default: {
+            comparison = a.modifiedTime.getTime() - b.modifiedTime.getTime();
+          }
+        }
         return sortOrder === 'desc' ? -comparison : comparison;
       });
 
