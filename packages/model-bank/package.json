@@ -87,7 +87,7 @@
   },
   "dependencies": {
     "@lobechat/business-const": "workspace:*",
-    "type-fest": "^5.2.0"
+    "type-fest": "^5.4.4"
   },
   "peerDependencies": {
     "zod": "^3.25.76"
